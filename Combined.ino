@@ -13,6 +13,7 @@ File logFile;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 String fileName = "log.txt";
+int measurementTimeMillis = 60000;
 
 float readTemp();
 float readPV();
@@ -32,7 +33,7 @@ void setup() {
 
 void loop() {
   tick();
-  delay(1000);
+  delay(measurementTimeMillis);
 }
 
 void tick() {
