@@ -27,7 +27,6 @@ void setup() {
   Serial.begin(9600);
   sensors.begin();
   initRTC();
-  initSD();
 }
 
 void loop() {
@@ -97,6 +96,16 @@ uint32_t unixTimestamp() {
 
 bool writeToLog(float temp, float pv) {
 
+  String dataString = "";
+
+  dataString += unixTimestamp();
+  dataString += " > ";
+  dataString += temp;
+  dataString += " | ";
+  dataString += pv;
+
+  initSD();
+
   File logFile = SD.open(fileName, FILE_WRITE);
   
   if(logFile) {
@@ -105,12 +114,9 @@ bool writeToLog(float temp, float pv) {
       Serial.print(pv);
       Serial.println();
       
-      logFile.print(unixTimestamp());
-      logFile.print(" > ");
-      logFile.print(temp);
-      logFile.print(" | ");
-      logFile.print(pv);
-      logFile.println();
+      delay(250);
+      logFile.println(dataString);
+      delay(250);
       logFile.close();
       
       return true;
@@ -118,4 +124,5 @@ bool writeToLog(float temp, float pv) {
     Serial.println(F("Error opening file."));
     return false;
   }
+
 }
