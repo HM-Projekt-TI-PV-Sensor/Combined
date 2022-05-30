@@ -1,6 +1,3 @@
-#include <MemoryFree.h>
-#include <pgmStrToRAM.h>
-
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <SD.h>
@@ -12,7 +9,6 @@
 #define PV_CONVERT_SCALAR 1.27F
 
 RTC_DS3231 rtc;
-File logFile;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 String fileName = "log.txt";
@@ -41,9 +37,6 @@ void loop() {
 
 void tick() {
   Serial.println(F("Tick"));
-  Serial.print(F("Free RAM pre write: "));
-  Serial.print(freeMemory(), DEC);
-  Serial.println();
   
   float temp = readTemp();
   float pv = readPV();
@@ -86,13 +79,12 @@ void initSD() {
     Serial.println(F("SD CARD FAILED!"));
     while (1);
   }
-  logFile = SD.open(fileName, FILE_WRITE);
   Serial.println(F("SD card init"));
 }
 
 void createFile() {
   if (!SD.exists(fileName)) {
-    logFile = SD.open(fileName, FILE_WRITE);
+    File logFile = SD.open(fileName, FILE_WRITE);
     logFile.close();
   }
 }
@@ -104,27 +96,22 @@ uint32_t unixTimestamp() {
 }
 
 bool writeToLog(float temp, float pv) {
-  Serial.print(F("Free RAM pre write: "));
-  Serial.print(freeMemory(), DEC);
-  Serial.println();
+
+  File logFile = SD.open(fileName, FILE_WRITE);
   
   if(logFile) {
       Serial.print(temp);
       Serial.print(F(" | "));
       Serial.print(pv);
       Serial.println();
-      logFile = SD.open(fileName, FILE_WRITE);
+      
       logFile.print(unixTimestamp());
-      logFile.print(F(" > "));
+      logFile.print(" > ");
       logFile.print(temp);
-      logFile.print(F(" | "));
+      logFile.print(" | ");
       logFile.print(pv);
       logFile.println();
       logFile.close();
-
-      Serial.print(F("Free RAM post write: "));
-      Serial.print(freeMemory(), DEC);
-      Serial.println();
       
       return true;
   } else {
