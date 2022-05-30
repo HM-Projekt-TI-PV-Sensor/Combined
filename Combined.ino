@@ -13,7 +13,7 @@ File logFile;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 String fileName = "log.txt";
-int measurementTimeMillis = 60000;
+int measurementTimeMillis = 500;
 
 float readTemp();
 float readPV();
@@ -21,7 +21,7 @@ void initRTC();
 void initSD();
 void createFile();
 uint32_t unixTimestamp();
-void writeToLog(float temp, float pv);
+bool writeToLog(float temp, float pv);
 void tick();
 
 void setup() {
@@ -37,10 +37,16 @@ void loop() {
 }
 
 void tick() {
-  Serial.println("Tick");
+  Serial.println(F("Tick"));
   float temp = readTemp();
   float pv = readPV();
-  writeToLog(temp, pv);
+  int retries = 0;
+  while(!writeToLog(temp, pv)) {
+    retries++;
+    Serial.print(F("Retry write: "));
+    Serial.print(retries);
+    Serial.println();
+  }
 }
 
 float readPV() {
@@ -85,21 +91,23 @@ uint32_t unixTimestamp() {
   return stamp;
 }
 
-void writeToLog(float temp, float pv) {
-  Serial.print(temp);
-  Serial.print(F(" | "));
-  Serial.print(pv);
-  Serial.println();
-  
+bool writeToLog(float temp, float pv) {
   if(logFile) {
+      Serial.print(temp);
+      Serial.print(F(" | "));
+      Serial.print(pv);
+      Serial.println();
+      logFile = SD.open(fileName, FILE_WRITE);
       logFile.print(unixTimestamp());
       logFile.print(F(" > "));
       logFile.print(temp);
       logFile.print(F(" | "));
       logFile.print(pv);
       logFile.println();
-      logFile.flush();
+      logFile.close();
+      return true;
   } else {
     Serial.println(F("Error opening file."));
+    return false;
   }
 }
