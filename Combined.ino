@@ -1,3 +1,6 @@
+#include <MemoryFree.h>
+#include <pgmStrToRAM.h>
+
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <SD.h>
@@ -38,11 +41,20 @@ void loop() {
 
 void tick() {
   Serial.println(F("Tick"));
+  Serial.print(F("Free RAM pre write: "));
+  Serial.print(freeMemory(), DEC);
+  Serial.println();
+  
   float temp = readTemp();
   float pv = readPV();
   int retries = 0;
   while(!writeToLog(temp, pv)) {
+    delay(100);
     retries++;
+    if(retries == 10) {
+      Serial.print(F("Stopping retries..."));
+      break;
+    }
     Serial.print(F("Retry write: "));
     Serial.print(retries);
     Serial.println();
@@ -92,6 +104,10 @@ uint32_t unixTimestamp() {
 }
 
 bool writeToLog(float temp, float pv) {
+  Serial.print(F("Free RAM pre write: "));
+  Serial.print(freeMemory(), DEC);
+  Serial.println();
+  
   if(logFile) {
       Serial.print(temp);
       Serial.print(F(" | "));
@@ -105,6 +121,11 @@ bool writeToLog(float temp, float pv) {
       logFile.print(pv);
       logFile.println();
       logFile.close();
+
+      Serial.print(F("Free RAM post write: "));
+      Serial.print(freeMemory(), DEC);
+      Serial.println();
+      
       return true;
   } else {
     Serial.println(F("Error opening file."));
