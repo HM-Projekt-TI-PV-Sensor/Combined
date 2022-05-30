@@ -68,7 +68,7 @@ void initSD() {
     Serial.println(F("SD CARD FAILED!"));
     while (1);
   }
-
+  logFile = SD.open(fileName, FILE_WRITE);
   Serial.println(F("SD card init"));
 }
 
@@ -91,13 +91,15 @@ void writeToLog(float temp, float pv) {
   Serial.print(pv);
   Serial.println();
   
-  logFile = SD.open(fileName, FILE_WRITE);
-  logFile.print(unixTimestamp());
-  logFile.print(F(" > "));
-  logFile.print(temp);
-  logFile.print(F(" | "));
-  logFile.print(pv);
-  logFile.println();
-  logFile.close();
-
+  if(logFile) {
+      logFile.print(unixTimestamp());
+      logFile.print(F(" > "));
+      logFile.print(temp);
+      logFile.print(F(" | "));
+      logFile.print(pv);
+      logFile.println();
+      logFile.flush();
+  } else {
+    Serial.println(F("Error opening file."));
+  }
 }
