@@ -12,7 +12,7 @@
   OneWire oneWire(ONE_WIRE_BUS);
   DallasTemperature sensors(&oneWire);
   String fileName = "log.txt";
-  int measurementTimeMillis = 250;
+  unsigned long measurementTimeMillis = 60000L;
   
   float readTemp();
   float readPV();
@@ -26,6 +26,7 @@
   void setup() {
     Serial.begin(9600);
     sensors.begin();
+    pinMode(3, OUTPUT);
     initRTC();
   }
   
@@ -76,7 +77,12 @@
   void initSD() {
     if (!SD.begin(PIN_SPI_CS)) {
       Serial.println(F("SD CARD FAILED!"));
-      while (1);
+      while (1) {
+        digitalWrite(3, HIGH);   // turn the LED on (HIGH is the voltage level)
+        delay(1000);                       // wait for a second
+        digitalWrite(3, LOW);    // turn the LED off by making the voltage LOW
+        delay(1000);                       // wait for a second
+      }
     }
     Serial.println(F("SD card init"));
   }
