@@ -12,6 +12,7 @@
 #define PV_CONVERT_SCALAR 1.27F
 #define DCDC_SWITCH 4
 #define STATUS_LED 11
+#define RESET_RTC false
 
 // INIT VARIABLES
 String fileName = "log.txt";
@@ -138,7 +139,7 @@ float readTemp() {
 }
 
 void initRTC() {
-  if (! rtc.begin()) {
+  if (!rtc.begin()) {
     Serial.println(F("Couldn't find RTC"));
     while(1) {
       digitalWrite(STATUS_LED, HIGH);
@@ -148,7 +149,9 @@ void initRTC() {
     }
   }
 
-  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  if(RESET_RTC) {
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
   Serial.println(F("RTC started"));
 }
 
