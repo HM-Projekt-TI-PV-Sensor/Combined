@@ -11,17 +11,18 @@
 #define PV_SENSOR_PIN A1
 #define PV_CONVERT_SCALAR 1.27F
 #define DCDC_SWITCH 4
-#define STATUS_LED 11
+#define STATUS_LED 5
 #define RESET_RTC false
 
 // INIT VARIABLES
 String fileName = "log.txt";
-int measurmentTimeSeconds = 53;
+int measurmentTimeSeconds = 60;
 
 // SENSOR INIT VARIABLES
 RTC_DS3231 rtc;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
+uint32_t lastMeasurement = millis();
 
 // DATA FUNCTIONS
 float readTemp();
@@ -90,7 +91,16 @@ void loop() {
   pwrDown(measurmentTimeSeconds); // ATmega328 fährt runter für 60 Sekunden
   wdt_reset();  // Reset Watchdog Timer
   */
-
+  uint32_t start = millis();
+  wdt_reset();  // Reset Watchdog Timer
+  uint32_t measureDelta = millis() - lastMeasurement;
+  lastMeasurement = millis();
+  double secs = measureDelta / 1000.0;
+  Serial.print(F("Measurement delta: "));
+  Serial.print(secs);
+  Serial.print(F("s"));
+  Serial.println();
+  
   // WRITE SD
   digitalWrite(DCDC_SWITCH, HIGH);
   delay(5000);    // Delay to get valid data from insolation sensor
@@ -103,10 +113,9 @@ void loop() {
   delay(1000);
   digitalWrite(STATUS_LED, LOW);
   delay(1000);
-  
-  pwrDown(measurmentTimeSeconds);
-  wdt_reset();  // Reset Watchdog Timer
-  
+
+  uint32_t delta = millis() - start;
+  pwrDown(measurmentTimeSeconds - (delta / 1000));
 }
 
 void tick() {
