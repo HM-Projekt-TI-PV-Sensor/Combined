@@ -22,7 +22,7 @@ int measurmentTimeSeconds = 60;
 RTC_DS3231 rtc;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
-uint32_t lastMeasurement = millis();
+uint32_t lastMeasurement = 0;
 
 // DATA FUNCTIONS
 float readTemp();
@@ -91,11 +91,12 @@ void loop() {
   pwrDown(measurmentTimeSeconds); // ATmega328 fährt runter für 60 Sekunden
   wdt_reset();  // Reset Watchdog Timer
   */
-  uint32_t start = millis();
+  
   wdt_reset();  // Reset Watchdog Timer
-  uint32_t measureDelta = millis() - lastMeasurement;
-  lastMeasurement = millis();
-  double secs = measureDelta / 1000.0;
+  uint32_t start = millis();
+  uint32_t measureDelta = unixTimestamp() - lastMeasurement;
+  lastMeasurement = unixTimestamp();
+  double secs = measureDelta;
   Serial.print(F("Measurement delta: "));
   Serial.print(secs);
   Serial.print(F("s"));
