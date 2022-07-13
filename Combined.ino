@@ -27,7 +27,6 @@ uint32_t lastMeasurement = 0;
 // DATA FUNCTIONS
 float readTemp();
 float readPV();
-void printData(float temp, float pv);
 
 // REAL TIME CLOCK INIT
 void initRTC();
@@ -39,68 +38,26 @@ uint32_t unixTimestamp();
 bool writeToLog(float temp, float pv);
 void tick();
 
-// RGB LED FUNCTION
-// void RGB_color(char red_light_value, char green_light_value, char blue_light_value);
-
-// DEEP SLEEP VARIABLES
-volatile int sleepcounter = 0; // Schlafzyklen mitzählen
-int k = 0;
-
 /* INIT
- *  INITIALIZE SENSORS
+ *  INITIALIZE temperature SENSOR
  *  SET PINMODES TO OUTPUT |  LED Indicators:
- *                            - Blink for 1s: Read and write data successful
- *                            - ...
+ *                            - Blink for 1/2s: Read and write data successful
+ *                            - Blink for 2s-ON|1/2s-OFF if SD Card is not initialized
  *                            DCDC Switch is used to turn on/off Power for insolation sensor
- *  TURN ON WATCHDOF | Creates interrupt for arduino deep sleep in one minute interval
  *  INITIALIZE RTC
- *  TURN ON
  */
  
 void setup() {
-  Serial.begin(9600);
+  // Serial.begin(9600);
   sensors.begin();
   pinMode(STATUS_LED, OUTPUT);
   pinMode(DCDC_SWITCH, OUTPUT);
-  watchdogOn(); // Watchdog timer einschalten.
   initRTC();
 }
 
 void loop() {
 
-  /*
-  // Debug Switch and sleep mode
-  float temp = readTemp(); // Vergleichsmessung 
-  float pv = readPV();
-  printData(temp, pv);
-  digitalWrite(DCDC_SWITCH, HIGH);
-  delay(5000);
-  temp = readTemp(); // Vergleichsmessung 
-  pv = readPV();
-  printData(temp, pv);
-  digitalWrite(DCDC_SWITCH, LOW);
-
-  
-  // SLEEP MODE
-  digitalWrite(STATUS_LED, HIGH);
-  delay(100); // delay für serielle Ausgabe
-  Serial.println(k);  
-  k++;
-  delay(900); // delay für serielle Ausgabe beenden
-  digitalWrite(STATUS_LED, LOW);
-  pwrDown(measurmentTimeSeconds); // ATmega328 fährt runter für 60 Sekunden
-  wdt_reset();  // Reset Watchdog Timer
-  */
-  
-  wdt_reset();  // Reset Watchdog Timer
-  uint32_t start = millis();
-  uint32_t measureDelta = unixTimestamp() - lastMeasurement;
-  lastMeasurement = unixTimestamp();
-  double secs = measureDelta;
-  Serial.print(F("Measurement delta: "));
-  Serial.print(secs);
-  Serial.print(F("s"));
-  Serial.println();
+  uint32_t time_now = unixTimestamp();
   
   // WRITE SD
   digitalWrite(DCDC_SWITCH, HIGH);
@@ -111,16 +68,24 @@ void loop() {
 
   // Signal of data written
   digitalWrite(STATUS_LED, HIGH);
-  delay(1000);
+  delay(500);
   digitalWrite(STATUS_LED, LOW);
-  delay(1000);
+  delay(500);
 
-  uint32_t delta = millis() - start;
-  pwrDown(measurmentTimeSeconds - (delta / 1000));
+  // Go to sleep for 45secs
+  int sleep_time = 45;
+  for (int i = 0; i < sleep_time; i++) {
+    myWatchdogEnable ();
+  }
+
+  // Calc remaining time to 60secs and delay to get frequency of 1 minute
+  uint32_t delta = unixTimestamp() - time_now;
+  delay((measurmentTimeSeconds - delta)*1000);
+  
 }
 
+// Routine for getting values and save
 void tick() {
-  Serial.println(F("Tick"));
   
   float temp = readTemp();
   float pv = readPV();
@@ -138,19 +103,22 @@ void tick() {
   }
 }
 
+// Get insolation value
 float readPV() {
   float raw = (float) analogRead(PV_SENSOR_PIN);
   return raw * PV_CONVERT_SCALAR;
 }
 
+// Get temperature value
 float readTemp() {
   sensors.requestTemperatures();
   return sensors.getTempCByIndex(0);
 }
 
+// Initialize RTC and set blinkink LED if failure
 void initRTC() {
   if (!rtc.begin()) {
-    Serial.println(F("Couldn't find RTC"));
+    // Serial.println(F("Couldn't find RTC"));
     while(1) {
       digitalWrite(STATUS_LED, HIGH);
       delay(2000);
@@ -162,12 +130,20 @@ void initRTC() {
   if(RESET_RTC) {
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
-  Serial.println(F("RTC started"));
+  // Serial.println(F("RTC started"));
 }
 
+// Get unixTimestamp from RTC
+uint32_t unixTimestamp() {
+  DateTime current = rtc.now();
+  uint32_t stamp = current.unixtime();
+  return stamp;
+}
+
+// Initialize SD Card via SPI
 void initSD() {
   if (!SD.begin(PIN_SPI_CS)) {
-    Serial.println(F("SD CARD FAILED!"));
+    // Serial.println(F("SD CARD FAILED!"));
     while (1) {
       // ERROR if SD Card could not be written
       digitalWrite(STATUS_LED, HIGH);
@@ -176,9 +152,9 @@ void initSD() {
       delay(1000);                 
     }
   }
-  Serial.println(F("SD card init"));
 }
 
+// Create File ***NOT NEEDED*** ?!
 void createFile() {
   if (!SD.exists(fileName)) {
     File logFile = SD.open(fileName, FILE_WRITE);
@@ -186,12 +162,7 @@ void createFile() {
   }
 }
 
-uint32_t unixTimestamp() {
-  DateTime current = rtc.now();
-  uint32_t stamp = current.unixtime();
-  return stamp;
-}
-
+// Write data values to SD Card
 bool writeToLog(float temp, float pv) {
 
   String dataString = "";
@@ -209,8 +180,6 @@ bool writeToLog(float temp, float pv) {
   if(logFile) {
       logFile.println(dataString);
       logFile.close();
-
-      printData(temp, pv);
       
       return true;
   } else {
@@ -220,30 +189,23 @@ bool writeToLog(float temp, float pv) {
 
 }
 
-void pwrDown(int sekunden) {
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // den tiefsten Schlaf auswählen PWR_DOWN
-  for(int i=0; i < sekunden; i++) {
-    sleep_enable(); // sleep mode einschalten
-    sleep_mode(); // in den sleep mode gehen
-    sleep_disable(); // sleep mode ausschalten nach dem Erwachen
-  }
-}
+// Watchdog Dog ISR
+ISR (WDT_vect) 
+{
+   wdt_disable();  // disable watchdog
+} 
 
-void watchdogOn() {
-  MCUSR = MCUSR & B11110111; // Reset flag ausschalten, WDRF bit3 vom MCUSR.
-  WDTCSR = WDTCSR | B00011000; // Bit 3+4 um danach den Prescaler setzen zu können
-  WDTCSR = B00000110; // Watchdog Prescaler auf 128k setzen > ergibt ca. 1 Sekunde
-  WDTCSR = WDTCSR | B01000000; // Watchdog Interrupt einschalten
-  MCUSR = MCUSR & B11110111;
-}
+// Configure Watchdog Timer for 1s and got to sleep
+void myWatchdogEnable() 
+{
+  // clear various "reset" flags
+  MCUSR = 0;     
+  // allow changes, disable reset
+  WDTCSR = bit (WDCE) | bit (WDE);
+  // set interrupt mode and an interval 
+  WDTCSR = bit (WDIE) | bit (WDP2) | bit (WDP1);    // set WDIE, and 1 second delay
+  wdt_reset();
 
-ISR(WDT_vect) {
-  sleepcounter ++; // Schlafzyklen mitzählen
-}
-
-void printData(float temp, float pv){
-  Serial.print(temp);
-  Serial.print(F(" | "));
-  Serial.print(pv);
-  Serial.println();
+  set_sleep_mode (SLEEP_MODE_PWR_DOWN);  
+  sleep_mode(); 
 }
